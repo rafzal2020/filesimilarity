@@ -254,9 +254,8 @@ static double find_JSD(const FileRecord *File1, const FileRecord *File2)
         // update KLD for word 2 if freq2 > 0
         if (freq2 > 0)
             kld2 += freq2 * log2(freq2 / mean);
-
-        return sqrt((kld1 + kld2) / 2.0);
     }
+    return sqrt((kld1 + kld2) / 2.0);
 }
 
 // temporary test main from chat
