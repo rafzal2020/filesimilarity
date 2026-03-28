@@ -15,6 +15,23 @@
 #define FILES_INIT_CAP 16
 #define DEFAULT_SUFFIX ".txt"
 
+/* ── DEBUG MACROS ───────────────────────────────────────────── */
+#ifdef DEBUG
+#define DBG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define DBG(...)
+#endif
+
+#define CHECK_ALLOC(p)          \
+    do                          \
+    {                           \
+        if (!(p))               \
+        {                       \
+            perror("malloc");   \
+            exit(EXIT_FAILURE); \
+        }                       \
+    } while (0)
+
 typedef struct WordNode
 {
     char *word;
@@ -103,6 +120,8 @@ static int is_word_char(unsigned char c)
 
 static FileRecord parse_file(const char *path)
 {
+    DBG("Parsing file: %s\n", path);
+
     FileRecord fr;
     fr.path = strdup(path);
     fr.wfd = NULL;
@@ -157,6 +176,8 @@ static FileRecord parse_file(const char *path)
                 if (in_word)
                 {
                     wbuf[wlen] = '\0';
+                    DBG("  word: %s\n", wbuf);
+
                     fr.wfd = wfd_insert(fr.wfd, wbuf);
                     fr.total++;
                     wlen = 0;
@@ -178,6 +199,8 @@ static FileRecord parse_file(const char *path)
         fr.total++;
     }
 
+    DBG("Total words in %s: %d\n", path, fr.total);
+
     free(wbuf);
     close(fd);
     return fr;
@@ -185,6 +208,8 @@ static FileRecord parse_file(const char *path)
 
 static void add_file(const char *path)
 {
+    DBG("Adding file: %s\n", path);
+
     if (g_nfiles == g_cap)
     {
         g_cap = g_cap ? g_cap * 2 : FILES_INIT_CAP;
@@ -196,10 +221,13 @@ static void add_file(const char *path)
         }
     }
     g_files[g_nfiles++] = parse_file(path);
+
+    DBG("Total files: %d\n", g_nfiles);
 }
 
 static double find_JSD(const FileRecord *File1, const FileRecord *File2)
 {
+    DBG("Comparing %s and %s\n", File1->path, File2->path);
 
     // ptrs to iterate through word freq lists
     WordNode *f1 = File1->wfd;
@@ -254,8 +282,15 @@ static double find_JSD(const FileRecord *File1, const FileRecord *File2)
         // update KLD for word 2 if freq2 > 0
         if (freq2 > 0)
             kld2 += freq2 * log2(freq2 / mean);
+
+        DBG("word=%s freq1=%f freq2=%f mean=%f\n",
+            word ? word : "(null)", freq1, freq2, mean);
     }
-    return sqrt((kld1 + kld2) / 2.0);
+    DBG("kld1=%f kld2=%f\n", kld1, kld2);
+
+    double jsd = sqrt((kld1 + kld2) / 2.0);
+    DBG("JSD=%f\n", jsd);
+    return jsd;
 }
 
 // temporary test main from chat

@@ -4,6 +4,7 @@ LDFLAGS = -lm
 
 # Uncomment to build with sanitizers during testing:
 # CFLAGS += -fsanitize=address,undefined
+# CFLAGS += -DDEBUG
 
 TARGET  = compare
 SRCS    = compare.c
