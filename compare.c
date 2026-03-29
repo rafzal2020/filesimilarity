@@ -61,7 +61,7 @@ static int g_nfiles = 0;
 static int g_cap = 0;
 
 /* suffix to filter directory entries (default ".txt") */
-static const char *g_suffix = DEFAULT_SUFFIX;
+// static const char *g_suffix = DEFAULT_SUFFIX;
 
 static WordNode *wfd_insert(WordNode *head, const char *word)
 {
@@ -299,7 +299,7 @@ static double find_JSD(const FileRecord *File1, const FileRecord *File2)
     // iterate through lists
     while (f1 || f2)
     {
-        const char *word;                // current word
+ 	const char *word;     // only required when DDEBUG is on; make will show a warning otherwise   // current word
         double freq1 = 0.0, freq2 = 0.0; // frequencies for I and J
 
         // word exists in both lists:
