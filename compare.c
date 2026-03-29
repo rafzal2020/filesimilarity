@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <math.h>
 #include <assert.h>
@@ -225,6 +226,64 @@ static void add_file(const char *path)
     DBG("Total files: %d\n", g_nfiles);
 }
 
+static void handle_filepath(const char *path)
+{
+
+    struct stat st;
+
+    if (stat(path, &st) != 0)
+    {
+        perror(path);
+        return;
+    }
+
+    // if path is regular file
+    if (S_ISREG(st.st_mode))
+    {
+        DBG("Found file: %s\n", path);
+
+        // add file to list and return
+        add_file(path);
+        return;
+    }
+
+    // if path is directory
+    if (S_ISDIR(st.st_mode))
+    {
+        DBG("Entering directory: %s\n", path);
+
+        // open directory
+        DIR *dir = opendir(path);
+        if (!dir)
+        {
+            perror(path);
+            return;
+        }
+
+        struct dirent *entry;
+
+        // traverse through directory
+        while ((entry = readdir(dir)) != NULL)
+        {
+            // skip . and .. -> current or parent directory
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            {
+                continue;
+            }
+
+            // build complete path
+            char complete_path[PATH_MAX];
+            snprintf(complete_path, sizeof(complete_path), "%s/%s", path, entry->d_name);
+
+            // recursively scan
+            // this way: file gets added, directory gets recursed until file found
+            handle_filepath(complete_path);
+        }
+
+        closedir(dir);
+    }
+}
+
 static double find_JSD(const FileRecord *File1, const FileRecord *File2)
 {
     DBG("Comparing %s and %s\n", File1->path, File2->path);
@@ -264,7 +323,7 @@ static double find_JSD(const FileRecord *File1, const FileRecord *File2)
         }
 
         // word only exists in file 2
-        else if (f1 == NULL || (f2 && strcmp(f1->word, f2->word) < 0))
+        else if (f1 == NULL || (f2 && strcmp(f1->word, f2->word) > 0))
         {
             freq1 = 0.0;
             freq2 = (double)f2->count / File2->total;
@@ -296,22 +355,40 @@ static double find_JSD(const FileRecord *File1, const FileRecord *File2)
 // temporary test main from chat
 int main(int argc, char *argv[])
 {
-    if (argc != 3)
+    // provide at least one path
+    if (argc < 2)
     {
-        fprintf(stderr, "Usage: %s file1 file2\n", argv[0]);
+        fprintf(stderr, "Usage: %s file-or-dir...\n", argv[0]);
         return 1;
     }
 
-    FileRecord A = parse_file(argv[1]);
-    FileRecord B = parse_file(argv[2]);
+    // scan every argument (file or directory)
+    for (int i = 1; i < argc; i++)
+    {
+        handle_filepath(argv[i]);
+    }
 
-    double jsd = find_JSD(&A, &B);
-    printf("%s %s %f\n", A.path, B.path, jsd);
+    // compare all possible pairs of files
+    for (int i = 0; i < g_nfiles; i++)
+    {
+        for (int j = i + 1; j < g_nfiles; j++)
+        {
+            double jsd = find_JSD(&g_files[i], &g_files[j]);
 
-    wfd_free(A.wfd);
-    wfd_free(B.wfd);
-    free(A.path);
-    free(B.path);
+            printf("%s %s %f\n",
+                   g_files[i].path,
+                   g_files[j].path,
+                   jsd);
+        }
+    }
+
+    for (int i = 0; i < g_nfiles; i++)
+    {
+        wfd_free(g_files[i].wfd);
+        free(g_files[i].path);
+    }
+
+    free(g_files);
 
     return 0;
 }
