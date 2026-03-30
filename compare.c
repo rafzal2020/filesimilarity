@@ -226,6 +226,13 @@ static void add_file(const char *path)
     DBG("Total files: %d\n", g_nfiles);
 }
 
+// helper function to check for .txt files
+static int is_dottxt(const char *name)
+{
+    size_t len = strlen(name);
+    return len > 4 && strcmp(name + len - 4, ".txt") == 0;
+}
+
 static void handle_filepath(const char *path)
 {
 
@@ -237,7 +244,7 @@ static void handle_filepath(const char *path)
         return;
     }
 
-    // if path is regular file
+    // if path is regular file (explicitly passed by user)
     if (S_ISREG(st.st_mode))
     {
         DBG("Found file: %s\n", path);
@@ -276,8 +283,33 @@ static void handle_filepath(const char *path)
             snprintf(complete_path, sizeof(complete_path), "%s/%s", path, entry->d_name);
 
             // recursively scan
-            // this way: file gets added, directory gets recursed until file found
-            handle_filepath(complete_path);
+            // this way: txt file gets added, directory gets recursed until file found
+
+            // struct for current entry
+            struct stat child_st;
+            if (stat(complete_path, &child_st) != 0)
+            {
+                perror(complete_path);
+                continue;
+            }
+
+            // check if current entry is directory
+            if (S_ISDIR(child_st.st_mode))
+            {
+                // recursively scan
+                handle_filepath(complete_path);
+            }
+
+            // otherwise check if it is a file
+            else if (S_ISREG(child_st.st_mode))
+            {
+                // only add .txt files
+                if (is_dottxt(entry->d_name))
+                {
+                    DBG("Found .txt file: %s\n", complete_path);
+                    add_file(complete_path);
+                }
+            }
         }
 
         closedir(dir);
@@ -299,7 +331,7 @@ static double find_JSD(const FileRecord *File1, const FileRecord *File2)
     // iterate through lists
     while (f1 || f2)
     {
- 	const char *word;     // only required when DDEBUG is on; make will show a warning otherwise   // current word
+        const char *word;                // only required when DDEBUG is on; make will show a warning otherwise   // current word
         double freq1 = 0.0, freq2 = 0.0; // frequencies for I and J
 
         // word exists in both lists:
@@ -352,7 +384,6 @@ static double find_JSD(const FileRecord *File1, const FileRecord *File2)
     return jsd;
 }
 
-// temporary test main from chat
 int main(int argc, char *argv[])
 {
     // provide at least one path
@@ -366,6 +397,13 @@ int main(int argc, char *argv[])
     for (int i = 1; i < argc; i++)
     {
         handle_filepath(argv[i]);
+    }
+
+    // must have at least two files to compare
+    if (g_nfiles < 2)
+    {
+        fprintf(stderr, "Need at least two input files\n");
+        exit(EXIT_FAILURE);
     }
 
     // compare all possible pairs of files
